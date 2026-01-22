@@ -1,0 +1,4 @@
+Value,Name
+0,Classified land (Has a classification label and is land according to the water mask.)
+2,Classified water (Has a classification label and is water according to the water mask.)
+5,"Misclassified water (Classified as water but water mask says it is land, switched to secondary label.)"

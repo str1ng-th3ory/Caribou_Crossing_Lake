@@ -24,7 +24,7 @@ polys1_sf = sf::st_read("data/Contwoyto_pure_water.shp", quiet = TRUE)
 polys1_sf = sf::st_transform(polys1_sf, 4326)
 # new version
 polys1 = as(polys1_sf, "Spatial")
-polygon_lake <- terra::vect(polys1_sf) 
+polygon_lake = terra::vect(polys1_sf) 
 
 # =========================
 ######Step 1: Find candidates
@@ -32,98 +32,98 @@ polygon_lake <- terra::vect(polys1_sf)
 # =========================
 
 # buffer (20 km guiding framework)
-lake_utm <- st_transform(polys1_sf, 32612)
-lake_buffer_utm <- st_buffer(lake_utm, 20000)
-lake_buffer <- st_transform(lake_buffer_utm, 4326)
-polygon_lake_buffer <- terra::vect(lake_buffer)
+lake_utm = st_transform(polys1_sf, 32612)
+lake_buffer_utm = st_buffer(lake_utm, 20000)
+lake_buffer = st_transform(lake_buffer_utm, 4326)
+polygon_lake_buffer = terra::vect(lake_buffer)
 
 #calculate the median line along the lake’s long axis
-lake_hull <- st_convex_hull(polys1_sf)
+lake_hull = st_convex_hull(polys1_sf)
 
-extendLongestAxisPCA <- function(polygon, extension_factor = 2.5) {
-  coords <- st_coordinates(polygon)
-  pca <- prcomp(coords[, 1:2])
-  center <- colMeans(coords[, 1:2])
-  pc1 <- pca$rotation[, 1] * sqrt(pca$sdev[1]) * extension_factor
-  axis_start <- center - pc1
-  axis_end <- center + pc1
+extendLongestAxisPCA = function(polygon, extension_factor = 2.5) {
+  coords = st_coordinates(polygon)
+  pca = prcomp(coords[, 1:2])
+  center = colMeans(coords[, 1:2])
+  pc1 = pca$rotation[, 1] * sqrt(pca$sdev[1]) * extension_factor
+  axis_start = center - pc1
+  axis_end = center + pc1
   st_sfc(st_linestring(rbind(axis_start, axis_end)), crs = st_crs(polygon))
 }
 
-extended_axis <- extendLongestAxisPCA(lake_hull, extension_factor = 2.5)
-extended_axis_terra <- terra::vect(extended_axis)
+extended_axis = extendLongestAxisPCA(lake_hull, extension_factor = 2.5)
+extended_axis_terra = terra::vect(extended_axis)
 
 mapview(extended_axis)+mapview(polys1_sf)
 
 #find out circumnavigating case candidates
 #find out all possible year-id combos
-year_id_combinations <- expand.grid(
+year_id_combinations = expand.grid(
   year = unique(nwt_lakes$Year),
   id   = unique(nwt_lakes$ID),
   KEEP.OUT.ATTRS = FALSE,
   stringsAsFactors = FALSE
 )
 
-actual_combinations <- year_id_combinations[
+actual_combinations = year_id_combinations[
   with(year_id_combinations, paste(year, id) %in% paste(nwt_lakes$Year, nwt_lakes$ID)),
 ]
 
 #2 season
-season_windows <- list(
+season_windows = list(
   spring = c(92, 181), #spring migration season (DOY 92 - DOY 181)
   fall   = c(182, 280) #fall migration season (DOY 182 - DOY 280)
 )
 
-results <- list()
+results = list()
 
 for (i in seq_len(nrow(actual_combinations))) {
   
-  year_i <- actual_combinations$year[i]
-  id_i   <- as.character(actual_combinations$id[i])
+  year_i = actual_combinations$year[i]
+  id_i   = as.character(actual_combinations$id[i])
   
-  data_i <- nwt_lakes %>%
+  data_i = nwt_lakes %>%
     filter(Year == year_i, ID == id_i) %>%
     arrange(Time)
   
   if (nrow(data_i) == 0) next
   
-  whole_line_year <- data.frame(data_i) %>%
+  whole_line_year = data.frame(data_i) %>%
     arrange(Time) %>%
     mutate(yday = lubridate::yday(Time))
   
   for (ss in names(season_windows)) {
     
-    y1 <- season_windows[[ss]][1]
-    y2 <- season_windows[[ss]][2]
+    y1 = season_windows[[ss]][1]
+    y2 = season_windows[[ss]][2]
     
-    whole_line <- subset(whole_line_year, yday >= y1 & yday <= y2)
+    whole_line = subset(whole_line_year, yday >= y1 & yday <= y2)
     
     if (nrow(whole_line) < 2) {next}
     
     # individual trajectory（terra）
-    cross_line_vct <- terra::vect(
+    cross_line_vct = terra::vect(
       whole_line,
       geom = c("Lon", "Lat"),
       crs = "+proj=longlat +datum=WGS84 +no_defs",
       keepgeom = FALSE
     )
-    whole_line_vct_line <- terra::as.lines(cross_line_vct)
+    whole_line_vct_line = terra::as.lines(cross_line_vct)
     
     # must meet three requirements
     # 1) intersect with lake_buffer（individual enter into the buffer）
-    intersection_buffer <- terra::intersect(polygon_lake_buffer, whole_line_vct_line)
+    intersection_buffer = terra::intersect(polygon_lake_buffer, whole_line_vct_line)
     if (terra::is.empty(intersection_buffer) || nrow(intersection_buffer) == 0) next
     
     # 2) intersect with extended median axis (lake long axis)（"Candidate features" that cross from one side of the axis to the other.）
-    intersection_axis <- terra::intersect(extended_axis_terra, whole_line_vct_line)
+    intersection_axis = terra::intersect(extended_axis_terra, whole_line_vct_line)
     if (terra::is.empty(intersection_axis) || nrow(intersection_axis) == 0) next
     
     # 3) not intersect with lake polygon（not “crossing”，more likely "circumnavigating"）
-    disjoint_lake <- terra::intersect(polygon_lake, whole_line_vct_line)
+    disjoint_lake = terra::intersect(polygon_lake, whole_line_vct_line)
     if (!terra::is.empty(disjoint_lake) && nrow(disjoint_lake) > 0) next
     
     # candidate
-    results[[length(results) + 1]] <- data.frame(
+    results[[length(results) + 1]] = data.frame(
       Year   = year_i,
       ID     = id_i,
       season = ss,
@@ -139,7 +139,7 @@ for (i in seq_len(nrow(actual_combinations))) {
 
 
 # save candidate list
-results_df <- if (length(results) == 0) {
+results_df = if (length(results) == 0) {
   data.frame(Year = integer(), ID = character(), season = character())
 } else {
   do.call(rbind, results)
@@ -162,58 +162,58 @@ results_df_circumnavigate = results_df
 # using trajectory visualization to confirm true circumnavigation and to define start/end points
 # =========================
 
-results_df_list <- list()
+results_df_list = list()
 for (i in 1:nrow(results_df)) {
-  year_i   <- results_df$Year[i]
-  id_i     <- as.character(results_df$ID[i])
-  season_i <- as.character(results_df$season[i]) 
+  year_i   = results_df$Year[i]
+  id_i     = as.character(results_df$ID[i])
+  season_i = as.character(results_df$season[i]) 
 
-  y1 <- season_windows[[season_i]][1]
-  y2 <- season_windows[[season_i]][2]
+  y1 = season_windows[[season_i]][1]
+  y2 = season_windows[[season_i]][2]
   
-  data <- nwt_lakes %>%
+  data = nwt_lakes %>%
     filter(lubridate::year(Time) == year_i, ID == id_i) %>%
     arrange(Time) %>%
     mutate(yday = yday(Time)) %>%
     filter(yday >= y1, yday <= y2)
   
   if (nrow(data) == 0) {
-    results_df_list[[i]] <- list(points = NULL, line = NULL)
+    results_df_list[[i]] = list(points = NULL, line = NULL)
     next
   }
   
-  sf_data <- st_as_sf(data, coords = c("Lon","Lat"), crs = 4326, remove = FALSE) %>%
+  sf_data = st_as_sf(data, coords = c("Lon","Lat"), crs = 4326, remove = FALSE) %>%
     mutate(idx = dplyr::row_number())
   
-  sf_data$popup <- paste0(
+  sf_data$popup = paste0(
     "idx: ", sf_data$idx,
     "<br>Time: ", format(sf_data$Time, "%Y-%m-%d %H:%M"),
     "<br>yday: ", sf_data$yday
   )
   
-  line <- NULL
+  line = NULL
   if (nrow(sf_data) > 1) {
-    line <- sf_data %>%
+    line = sf_data %>%
       summarize(geometry = st_combine(geometry)) %>%
       st_cast("LINESTRING")
   }
   
-  results_df_list[[i]] <- list(points = sf_data, line = line)
+  results_df_list[[i]] = list(points = sf_data, line = line)
 }
 
 # Here, you need to change "i" and manually check each row in the candidate form (result_df)
-i <- 1 #need to change it each round 
+i = 1 #need to change it each round 
 
-geometry_list <- results_df_list[[i]]
+geometry_list = results_df_list[[i]]
 
-m <- mapview(polys1_sf, layer.name="Lake") +
+m = mapview(polys1_sf, layer.name="Lake") +
   mapview(lake_buffer, layer.name="20km buffer")
 
 if (!is.null(geometry_list$line)) {
-  m <- m + mapview(geometry_list$line, layer.name=paste0("Line_", i))
+  m = m + mapview(geometry_list$line, layer.name=paste0("Line_", i))
 }
 if (!is.null(geometry_list$points)) {
-  m <- m + mapview(geometry_list$points, layer.name=paste0("Points_", i), popup = geometry_list$points$popup)
+  m = m + mapview(geometry_list$points, layer.name=paste0("Points_", i), popup = geometry_list$points$popup)
 }
 
 m 
@@ -230,16 +230,16 @@ m
 # =========================
 #load albedo data for one year
 #check working directory at first
-load_albedo_one_year <- function(year, polys1_sp, mat_dir = "data") {
-  data_filename <- file.path(mat_dir, paste0("output_", year, ".mat"))
+load_albedo_one_year = function(year, polys1_sp, mat_dir = "data") {
+  data_filename = file.path(mat_dir, paste0("output_", year, ".mat"))
   if (!file.exists(data_filename)) {
     stop("Cannot find: ", data_filename)
   }
   
-  climatology_data <- readMat(data_filename)
-  arr_climatology <- array(unlist(climatology_data), dim = c(426, 724, 365))
+  climatology_data = readMat(data_filename)
+  arr_climatology = array(unlist(climatology_data), dim = c(426, 724, 365))
   
-  arr_climatology_brick <- brick(
+  arr_climatology_brick = brick(
     arr_climatology,
     xmn = -111.7125, xmx = -108.6958,
     ymn = 64.375,   ymx = 66.15,
@@ -247,8 +247,8 @@ load_albedo_one_year <- function(year, polys1_sp, mat_dir = "data") {
     transpose = FALSE
   )
   
-  arr_climatology_brick_crop <- crop(arr_climatology_brick, extent(polys1_sp))
-  albedo_data <- mask(arr_climatology_brick_crop, polys1_sp)
+  arr_climatology_brick_crop = crop(arr_climatology_brick, extent(polys1_sp))
+  albedo_data = mask(arr_climatology_brick_crop, polys1_sp)
   
   return(albedo_data)  # RasterBrick with 365 layers
 }
@@ -257,47 +257,47 @@ load_albedo_one_year <- function(year, polys1_sp, mat_dir = "data") {
 # results_df_confirmed must contain:
 # Year, ID, season, before_index, after_index
   
-pair_list <- list()
+pair_list = list()
 
-current_year <- NA_integer_
-albedo_data <- NULL
-percentile_rank <- NULL
+current_year = NA_integer_
+albedo_data = NULL
+percentile_rank = NULL
 
 for (i in seq_len(nrow(results_df_checked))) {
   
-  year  <- results_df_checked$Year[i]
-  id    <- as.character(results_df_checked$ID[i])
-  season_i <- as.character(results_df_checked$season[i])
-  before_index <- results_df_checked$before_index[i]
-  after_index  <- results_df_checked$after_index[i]
+  year  = results_df_checked$Year[i]
+  id    = as.character(results_df_checked$ID[i])
+  season_i = as.character(results_df_checked$season[i])
+  before_index = results_df_checked$before_index[i]
+  after_index  = results_df_checked$after_index[i]
   
   # load albedo + calc percentile_rank 
   if (is.na(current_year) || year != current_year) {
     
-    current_year <- year
+    current_year = year
 
     # load albedo for this year 
-    albedo_data <- load_albedo_one_year(
+    albedo_data = load_albedo_one_year(
       year = year,
       polys1_sp = polys1,     # your Spatial lake polygon
       mat_dir = "data"        # folder where output_YYYY.mat lives
     )
     
-    percentile_rank <- calc(albedo_data[[92:280]], fun = function(x) {
-      n <- sum(!is.na(x))
+    percentile_rank = calc(albedo_data[[92:280]], fun = function(x) {
+      n = sum(!is.na(x))
       if (n == 0) return(rep(NA_real_, length(x)))
       rank(x, na.last = "keep") / n
     })
   }
   
-  data <- nwt_lakes %>%
+  data = nwt_lakes %>%
     filter(Year == year, ID == id) %>%
     arrange(Time) %>%
     mutate(yday = lubridate::yday(Time))
   
-  y1 <- season_windows[[season_i]][1]
-  y2 <- season_windows[[season_i]][2]
-  whole_line <- subset(data, yday >= y1 & yday <= y2)
+  y1 = season_windows[[season_i]][1]
+  y2 = season_windows[[season_i]][2]
+  whole_line = subset(data, yday >= y1 & yday <= y2)
   
   if (nrow(whole_line) < 2) next
   
@@ -306,9 +306,9 @@ for (i in seq_len(nrow(results_df_checked))) {
   if (before_index > nrow(whole_line) || after_index > nrow(whole_line)) next
   if (before_index >= after_index) next
   
-  nearest_before <- whole_line[before_index, ]
-  nearest_after  <- whole_line[after_index, ]
-  crossing_date <- nearest_before$yday
+  nearest_before = whole_line[before_index, ]
+  nearest_after  = whole_line[after_index, ]
+  crossing_date = nearest_before$yday
   
   #lake_width: The length of the intersection between the lake polygon and the line connecting consecutive sampling points.  
   point1 = whole_line[before_index, c("Lon", "Lat")]
@@ -325,7 +325,7 @@ for (i in seq_len(nrow(results_df_checked))) {
   sfPolygons = st_as_sf(polys1)
   
   intersectionPoints = st_intersection(sfLines,sfPolygons)
-  lake_width <- if (nrow(intersectionPoints) == 0) NA_real_ else as.numeric(st_length(intersectionPoints))
+  lake_width = if (nrow(intersectionPoints) == 0) NA_real_ else as.numeric(st_length(intersectionPoints))
   
   # straight distance/speed
   nearest_before_location = c(nearest_before$Lon[[1]], nearest_before$Lat[[1]])
@@ -387,7 +387,7 @@ for (i in seq_len(nrow(results_df_checked))) {
   circumvent_speed=circumvent_distance/time_difference_seconds
   
   # extract the albedo along the path
-  rank_number <- crossing_date - 91
+  rank_number = crossing_date - 91
   if (rank_number < 1 || rank_number > nlayers(percentile_rank)) next
   
   albedo_drop_percentile=percentile_rank[[(rank_number)]]
@@ -408,31 +408,31 @@ for (i in seq_len(nrow(results_df_checked))) {
   
   # albedo percentile rank (APR) at the nearest pixels
   # option1: find out the last lake pixel before the individual is back to the land
-  layer <- intersected_pixels$layer
+  layer = intersected_pixels$layer
   
   if (all(is.na(layer))) {
-    albedo_nearest_pixel <- NA_real_
+    albedo_nearest_pixel = NA_real_
   } else {
     # lake to land: from non NA to NA
-    water_to_land <- which(!is.na(layer[-length(layer)]) & is.na(layer[-1]))
+    water_to_land = which(!is.na(layer[-length(layer)]) & is.na(layer[-1]))
     if (length(water_to_land) == 0) {
-      albedo_nearest_pixel <- tail(na.omit(layer), 1)
+      albedo_nearest_pixel = tail(na.omit(layer), 1)
     } else {
-      albedo_nearest_pixel <- layer[max(water_to_land)]
+      albedo_nearest_pixel = layer[max(water_to_land)]
     }
   }
   
   # option2: the first lake pixel after the individual enter into lake
   if (all(is.na(layer))) {
-    albedo_first_water <- NA_real_
+    albedo_first_water = NA_real_
   } else {
     # land to lake: from NA to non-NA
-    land_to_water <- which(is.na(layer[-length(layer)]) & !is.na(layer[-1]))
+    land_to_water = which(is.na(layer[-length(layer)]) & !is.na(layer[-1]))
     
     if (length(land_to_water) == 0) {
-      albedo_first_water <- layer[which(!is.na(layer))[1]]
+      albedo_first_water = layer[which(!is.na(layer))[1]]
     } else {
-      albedo_first_water <- layer[min(land_to_water) + 1]
+      albedo_first_water = layer[min(land_to_water) + 1]
     }
   }
   
@@ -452,7 +452,7 @@ for (i in seq_len(nrow(results_df_checked))) {
   x.stats = data.frame(x.mean=cellStats(albedo_data[[92:280]], "mean",na.rm=TRUE))
   albedo_whole_lake=(rank(x.stats$x.mean)/sum(!is.na(x.stats)))[(rank_number)]
   
-  pair_list[[length(pair_list) + 1]] <- list(
+  pair_list[[length(pair_list) + 1]] = list(
     Year = year,
     ID = id,
     crossing_time = nearest_before$Time,
@@ -475,8 +475,8 @@ for (i in seq_len(nrow(results_df_checked))) {
   )
   
   # reference (original: ±3 around before & after) 
-  reference_list <- list()
-  ks <- c(before_index-3, 
+  reference_list = list()
+  ks = c(before_index-3, 
           before_index-2, 
           before_index-1, 
           after_index+1, 
@@ -485,23 +485,23 @@ for (i in seq_len(nrow(results_df_checked))) {
   
   for (k in ks) {
     if (k > 0 && k < nrow(whole_line)) {
-      nearest_location <- whole_line[k, ]
-      nearest_location_next <- whole_line[k + 1, ]
+      nearest_location = whole_line[k, ]
+      nearest_location_next = whole_line[k + 1, ]
       
-      pA <- c(nearest_location$Lon[[1]], nearest_location$Lat[[1]])
-      pB <- c(nearest_location_next$Lon[[1]], nearest_location_next$Lat[[1]])
+      pA = c(nearest_location$Lon[[1]], nearest_location$Lat[[1]])
+      pB = c(nearest_location_next$Lon[[1]], nearest_location_next$Lat[[1]])
       
-      displacement <- geosphere::distm(pA, pB, fun = geosphere::distHaversine)[1,1]
-      td1 <- nearest_location_next$Time - nearest_location$Time
-      td1_seconds <- as.numeric(td1, units = "secs")
-      crossing_duration1 <- as.numeric(td1, units = "days")
+      displacement = geosphere::distm(pA, pB, fun = geosphere::distHaversine)[1,1]
+      td1 = nearest_location_next$Time - nearest_location$Time
+      td1_seconds = as.numeric(td1, units = "secs")
+      crossing_duration1 = as.numeric(td1, units = "days")
       
-      average_speed <- ifelse(td1_seconds > 0, displacement / td1_seconds, NA)
+      average_speed = ifelse(td1_seconds > 0, displacement / td1_seconds, NA)
       
-      type_value <- as.character(k - before_index)
-      if (k > after_index) type_value <- as.character(k - after_index)
+      type_value = as.character(k - before_index)
+      if (k > after_index) type_value = as.character(k - after_index)
       
-      reference_list[[length(reference_list) + 1]] <- list(
+      reference_list[[length(reference_list) + 1]] = list(
         Year = year,
         ID = id,
         crossing_time = nearest_location$Time,
@@ -529,7 +529,7 @@ for (i in seq_len(nrow(results_df_checked))) {
 }
 
 pair_list_df = lapply(pair_list, function(x) as.data.frame(t(unlist(x))))
-result_df_circumnavigate <- do.call(rbind, pair_list_df)
+result_df_circumnavigate = do.call(rbind, pair_list_df)
 
 result_df_circumnavigate$crossing_time = as.POSIXct(
   as.numeric(result_df_circumnavigate$crossing_time), 
@@ -553,24 +553,24 @@ result_df_circumnavigate %>%
 
 #option
 ##if the albedo_linear is missing or have NA
-standard_columns <- colnames(result_df_circumnavigate)  
+standard_columns = colnames(result_df_circumnavigate)  
 
-pair_list_df_standardized <- lapply(pair_list_df, function(df) {
+pair_list_df_standardized = lapply(pair_list_df, function(df) {
 
   for (col in standard_columns) {
     if (!col %in% names(df)) {
-      df[[col]] <- NA  
+      df[[col]] = NA  
     }
   }
 
-  df <- df[, standard_columns]
+  df = df[, standard_columns]
   return(df)
 })
 
-result_df1 <- do.call(rbind, pair_list_df_standardized)
+result_df1 = do.call(rbind, pair_list_df_standardized)
 
-#result_df <- do.call(rbind, pair_list_df)
-result_df1$crossing_time <- as.POSIXct(as.numeric(result_df1$crossing_time), origin = "1970-01-01", tz = "UTC")
+#result_df = do.call(rbind, pair_list_df)
+result_df1$crossing_time = as.POSIXct(as.numeric(result_df1$crossing_time), origin = "1970-01-01", tz = "UTC")
 
 
 

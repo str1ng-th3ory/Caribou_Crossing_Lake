@@ -1,16 +1,35 @@
+# ----------------------------------------
+# 04_circumnavigating_event.R
+# Purpose:
+#   (1) Identify candidate circumnavigation events using spatial criteria,
+#   (2) manually inspect candidate trajectories, and
+#   (3) compute event-level movement and albedo/APR metrics for confirmed
+#       circumnavigation events.
+#
+# Notes:
+#   - Raw caribou GPS data are not distributed with this repository because they
+#     are subject to third-party data-sharing restrictions from GNWT-ECC.
+#   - This script also requires preprocessed annual .mat files containing daily
+#     albedo climatology outputs.
+#
+# Expected input objects/files:
+#   - nwt_lakes.RData
+#   - Contwoyto_pure_water.shp
+#   - output_<year>.mat for each year analyzed
+#   - manually checked circumnavigation table with before_index / after_index
+# ----------------------------------------
+
 library(lubridate)
 library(dplyr)
 library(terra)
 library(sf)
-library(R.matlab) 
+library(R.matlab)
 library(gdistance)
 library(fasterize)
-library(recolorize)
 library(mapview)
-mapviewOptions(method="ngb")
+mapviewOptions(method = "ngb")
 library(raster)
 library(geosphere)
-library(googlesheets4)
 
 # load caribou movement data
 load("data/nwt_lakes.RData")
@@ -145,20 +164,18 @@ results_df = if (length(results) == 0) {
   do.call(rbind, results)
 }
 
-#option
-library(googlesheets4)
-results_df%>%
-  data.frame()%>%
-  write_sheet(
-    ss = gs4_get(
-      "link" # Replace the access link to the spreadsheets"
-    ),
-    sheet = "Circumnavigate_initial")
+# Optional: export candidate list to Google Sheets
+# library(googlesheets4)
+# results_df %>%
+#   write_sheet(
+#     ss = gs4_get("link"),
+#     sheet = "Circumnavigate_initial"
+#   )
 
 results_df_circumnavigate = results_df
 
 # =========================
-######Step 2: Manual Inspection
+######Step 2: Manual Inspection - MUST DO!!
 # using trajectory visualization to confirm true circumnavigation and to define start/end points
 # =========================
 
@@ -226,7 +243,7 @@ m
 # new "result_df" should have 5 columns: "Year", "ID", "season", "before_index", "after_index"
 
 # =========================
-#####Step 3: Compute metrics (APR, speed, etc) for confirmed circumnavigation events
+# Step 3: Compute metrics (APR, speed, etc) for confirmed circumnavigation events
 # =========================
 #load albedo data for one year
 #check working directory at first
@@ -262,6 +279,9 @@ pair_list = list()
 current_year = NA_integer_
 albedo_data = NULL
 percentile_rank = NULL
+
+# results_df_checked should contain manually confirmed circumnavigation events
+# with columns: Year, ID, season, before_index, after_index
 
 for (i in seq_len(nrow(results_df_checked))) {
   
@@ -446,7 +466,7 @@ for (i in seq_len(nrow(results_df_checked))) {
   #albedo_nearest_pixel=near_albedo[(which(is.na(near_albedo))[1]-1),]
   
   # albedo percentile rank (APR) along the crossing path
-  alebdo_linear=intersected_pixels$layer %>% mean(,na.rm=TRUE)
+  albedo_linear=intersected_pixels$layer %>% mean(,na.rm=TRUE)
   
   # albedo percentile rank (APR) of the entire lake
   x.stats = data.frame(x.mean=cellStats(albedo_data[[92:280]], "mean",na.rm=TRUE))
@@ -467,23 +487,26 @@ for (i in seq_len(nrow(results_df_checked))) {
     straight_distance = straight_distance,
     circumvent_speed = circumvent_speed,
     straight_speed = straight_speed,
-    alebdo_linear = alebdo_linear,
+    albedo_linear = albedo_linear,
     albedo_nearest_pixel = albedo_nearest_pixel,
     albedo_whole_lake = albedo_whole_lake,
     type = 0,
     season = season_i
   )
   
-  # reference (original: ±3 around before & after) 
+  # reference rows: ±3 segments around the focal event
   reference_list = list()
-  ks = c(before_index-3, 
-          before_index-2, 
-          before_index-1, 
-          after_index+1, 
-          after_index+2, 
-          after_index+3)
   
-  for (k in ks) {
+  reference_offsets = c(-3, -2, -1, 1, 2, 3)
+  
+  for (offset in reference_offsets) {
+    
+    if (offset < 0) {
+      k = before_index + offset
+    } else {
+      k = after_index + offset - 1
+    }
+    
     if (k > 0 && k < nrow(whole_line)) {
       nearest_location = whole_line[k, ]
       nearest_location_next = whole_line[k + 1, ]
@@ -497,9 +520,6 @@ for (i in seq_len(nrow(results_df_checked))) {
       crossing_duration1 = as.numeric(td1, units = "days")
       
       average_speed = ifelse(td1_seconds > 0, displacement / td1_seconds, NA)
-      
-      type_value = as.character(k - before_index)
-      if (k > after_index) type_value = as.character(k - after_index)
       
       reference_list[[length(reference_list) + 1]] = list(
         Year = year,
@@ -516,10 +536,10 @@ for (i in seq_len(nrow(results_df_checked))) {
         straight_distance = displacement,
         circumvent_speed = NA,
         straight_speed = average_speed,
-        alebdo_linear = NA,
+        albedo_linear = NA,
         albedo_nearest_pixel = NA,
         albedo_whole_lake = NA,
-        type = type_value,
+        type = offset,
         season = season_i
       )
     }
@@ -538,21 +558,23 @@ result_df_circumnavigate$crossing_time = as.POSIXct(
 #save
 write.csv(
   result_df_circumnavigate,
-  paste0("circumnavigate_event", ".csv"),
+  "circumnavigate_event.csv",
   row.names = FALSE
 )
 
-# option
-result_df_circumnavigate %>%
-  write_sheet(
-    ss = gs4_get(
-      "link" # Replace the access link to the spreadsheets
-    ),
-    sheet = "circumnavigate_event")
+# Optional: export results to Google Sheets
+# library(googlesheets4)
+# result_df_circumnavigate %>%
+#   write_sheet(
+#     ss = gs4_get("link"),
+#     sheet = "circumnavigate_event"
+#   )
 
 
-#option
-##if the albedo_linear is missing or have NA
+# Optional: rebuild output after standardizing columns across list elements
+# in case some rows are missing fields (e.g., albedo-related values for references)
+
+# if the albedo_linear is missing or have NA
 standard_columns = colnames(result_df_circumnavigate)  
 
 pair_list_df_standardized = lapply(pair_list_df, function(df) {

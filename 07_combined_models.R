@@ -226,7 +226,8 @@ print(dredge_results_whole)
 summary(get.models(dredge_results_whole, 1)[[1]])
 
 # -------------------------
-# Check linearity visually
+# Check whether quadratic terms may be needed
+# using binned observed crossing proportions
 # -------------------------
 k <- 12
 

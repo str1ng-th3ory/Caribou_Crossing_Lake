@@ -269,10 +269,10 @@ adjust_model = glm(formula_adjust, family = "binomial", data = RF_fall)
 print(vif(adjust_model))
 
 
-# =========================
-#  Check whether quadratic terms are needed
+# -------------------------
+# Check whether quadratic terms may be needed
 # using binned observed crossing proportions
-# =========================
+# -------------------------
 k = 12
 
 tmp = RF_fall %>%

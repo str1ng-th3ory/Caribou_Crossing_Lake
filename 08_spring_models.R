@@ -255,10 +255,10 @@ lasso_model = glmnet(x, y, family = "binomial", alpha = 1, lambda = best_lambda)
 print(coef(lasso_model))
 
 
-# =========================
-#  Check whether quadratic terms are needed
+# -------------------------
+# Check whether quadratic terms may be needed
 # using binned observed crossing proportions
-# =========================
+# -------------------------
 k = 12
 
 tmp = RF_spring %>%

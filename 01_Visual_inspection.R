@@ -111,3 +111,35 @@ write.csv(
 #     ss = gs4_get("link"),
 #     sheet = paste0("on_lake_candidates", target_year)
 #   )
+
+## optional
+# Check the track and lake 
+library(dplyr)
+library(lubridate)
+library(terra)
+library(sf)
+
+load("data/nwt_lakes.RData")
+nwt_lakes = st_transform(nwt_lakes, 4326) %>% arrange(Time)
+
+polys1_sf = st_read("data/Contwoyto_pure_water.shp", quiet = TRUE)
+polys1_sf = st_transform(polys1_sf, 4326)
+polygon_lake = terra::vect(polys1_sf)
+
+data_i = nwt_lakes %>%
+  filter(Year == 2010, ID == "bat080") %>% #need input the year and id number
+  arrange(Time) %>%
+  mutate(yday = yday(Time)) %>%
+  filter(yday >= 182, yday <= 280) #need input day 
+
+pts_vct = terra::vect(
+  data.frame(data_i),
+  geom = c("Lon", "Lat"),
+  crs = "EPSG:4326",
+  keepgeom = TRUE
+)
+
+inside_pts = terra::relate(pts_vct, polygon_lake, "within")
+
+data_i$inside_lake = inside_pts
+data_i %>% filter(inside_lake)

@@ -1,5 +1,10 @@
 # Dynamic Lake Ice Conditions Shape Caribou Water-Crossing Behavior in the Arctic
 
+**Archive DOI:** [10.5281/zenodo.19364012](https://doi.org/10.5281/zenodo.19364012)  
+**Article DOI:** [10.1111/gcb.70858](https://doi.org/10.1111/gcb.70858)  *(in production)*
+
+**License:** MIT
+
 <b>Authors:</b> Qianru Liao<sup>1*</sup>, Eliezer Gurarie<sup>2</sup>, William F. Fagan<sup>1</sup>
 
 <sup>1</sup>Department of Biology, University of Maryland, College Park, MD, United States

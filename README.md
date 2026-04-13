@@ -9,13 +9,24 @@
 
 <sup>*</sup>Correspondence Author
 
-Code, derived products, and figure scripts supporting analyses of how dynamic lake ice conditions shape caribou crossing and circumnavigation behavior at Contwoyto Lake in the Canadian Arctic. This repository contains materials supporting the manuscript.
+This repository contains code, derived products, and figure scripts supporting the analyses in the manuscript:
+
+**Dynamic Lake Ice Conditions Shape Caribou Water-Crossing Behavior in the Arctic**
+
+The workflow links long-term caribou GPS tracking data with MODIS-derived lake albedo dynamics to identify lake-crossing and circumnavigation events at Contwoyto Lake and to quantify how seasonal ice conditions shape movement decisions.
 
 ---
 
 ## Abstract
 Successful animal migration hinges on navigation and decision-making in dynamic environments. Yet, how individuals navigate transient, fine-scale landscape barriers, such as seasonally ice-covered water bodies, remains poorly understood. Understanding these responses is critical for forecasting migration routes and connectivity under global change. In the Arctic, rising temperatures are causing earlier ice melt and later freeze-up, reshaping landscape permeability and potentially disrupting migration routes for overland migrants, such as barren-ground caribou (Rangifer tarandus), a keystone Arctic species, which relies on frozen lakes and rivers for efficient spring travel to calving grounds. While caribou generally prefer ice to open water, behavioral responses to changing ice conditions have not been quantitatively assessed. We analyzed 20 years (2001-2021) of GPS data for 406 adult caribou and daily MODIS land surface albedo to examine lake-crossing decisions at Contwoyto Lake, a long (>100 km) glacial lake in northern Canada. We classified transit events as crossing or circumnavigation based on GPS trajectories relative to lake boundaries and linked behavioral decisions to spatially and temporally resolved ice conditions. Our models revealed distinct seasonal drivers. Spring crossing decisions were shaped by intermediate-scale ice conditions, with a behavioral threshold at a path-averaged annual albedo percentile rank of 0.56, corresponding to intermediate late-spring melt conditions when lake ice transitions from continuous cover toward fragmented surfaces. In fall, when the lake was ice-free, movement-related factors such as relative speeds along alternative routes better explained behavior. Our findings show how ice acts as a seasonal behavior filter, shaping functional connectivity through perceptual and energetic constraints. Although developed for caribou, this framework is transferable across species and systems. By linking high-resolution, spatiotemporal remote sensing to individual behavior, our framework identifies quantitative behavioral thresholds in response to dynamic, climate-sensitive landscape features, supporting predictive monitoring of climate-driven shifts in migratory behavior and emerging constraints on movement.
 
+---
+
+## Repository overview
+
+This repository is intended as a transparent analysis archive for the manuscript. It includes the scripts used to preprocess environmental data, identify lake-use events, build event-level datasets, fit predictive models, and generate manuscript figures.
+
+Because some input data are restricted and several steps require manual review, this repository should not be interpreted as a one-click fully automated pipeline. Instead, it provides the full analytical logic, code base, and derived files needed to understand and reproduce the workflow as closely as possible.
 
 ---
 
@@ -24,8 +35,34 @@ Successful animal migration hinges on navigation and decision-making in dynamic 
 ```text
 Caribou_Crossing_Lake/
 ├── data/
+│   ├── output_2001.mat
+│   ├── output_2002.mat
+│   ├── ...
+│   ├── output_2021.mat
+│   ├── Contwoyto_pure_water.shp
+│   ├── Contwoyto_pure_water.shx
+│   ├── Contwoyto_pure_water.dbf
+│   ├── Contwoyto_pure_water.prj
+│   ├── all_focal_events_with_lake_spent.csv
+│   ├── feature_df.csv
+│   ├── known_event_all.csv
+│   ├── known_event_spring.csv
+│   ├── known_event_fall.csv
+│   ├── unknown_event_all.csv
+│   ├── unknown_event_spring.csv
+│   └── unknown_event_fall.csv
+├── Figure/
 ├── Figure_Script/
+│   ├── Figure1_maps.R
+│   ├── Figure2_example_paths.R
+│   ├── Figure3_albedo_processing.R
+│   ├── Figure4_known_event_maps.R
+│   ├── Figure5_unknown_event_trajectories.R
+│   ├── Figure6_spring_model_results.R
+│   └── Supplementary_Figures.R
 ├── landcover/
+│   ├── MCD12Q1-061-QC-lookup.csv
+│   └── MCD12Q1.061_LC_Type1_doy2011001_aid0001.tif
 ├── 00_MODIS_Albedo_Processing.m
 ├── 01_Visual_inspection.R
 ├── 02_Points_within_lake.R
@@ -50,14 +87,31 @@ Raw caribou GPS tracking data are **not included** in this repository. These dat
 
 Researchers interested in using these data should request access directly from GNWT-ECC.
 
-### Remote sensing inputs
+### Environmental inputs
 
-This workflow uses annual albedo products derived from MODIS datasets, including:
+This workflow uses MODIS-based environmental products, including:
 
 - **MCD43A3.061** shortwave black-sky albedo
 - **MCD12Q1.061** land cover
 
-The repository includes code for preprocessing these data, but large raw raster inputs may not be stored here depending on repository size limits.
+The repository includes:
+	•	the land-cover raster used to generate the lake water mask
+	•	annual processed .mat files (output_2001.mat to output_2021.mat) used in downstream analyses
+
+Large raw annual MODIS albedo tiles are not distributed here as a complete raw archive. Users who wish to rerun the full preprocessing workflow from the original raw rasters will need to obtain the relevant MODIS products separately and organize them according to the expected directory structure used in 00_MODIS_Albedo_Processing.m.
+
+### Derived files and intermediate results
+
+The data/ directory also contains selected derived outputs and intermediate files used during the analysis. Some of these are included as reference materials and may not exactly match the final cleaned workflow after later code reorganization and updates. The finalized analytical logic is represented by the scripts in the main project directory.
+
+---
+
+## External methodological reference
+The cloudy-sky albedo gap-filling workflow implemented in 00_MODIS_Albedo_Processing.m was adapted from:
+
+Jia, A., et al. (2023). Improved cloudy-sky snow albedo estimates using passive microwave and VIIRS data. ISPRS Journal of Photogrammetry and Remote Sensing, 196, 340-355.
+
+Users who reuse or adapt this preprocessing approach should cite that paper in addition to citing this repository and the associated manuscript.
 
 ---
 
@@ -69,13 +123,13 @@ The repository includes code for preprocessing these data, but large raw raster 
 
 This MATLAB script:
 
-- generates a water mask from MODIS land cover
-- compiles annual daily shortwave albedo layers
+- generates a water mask from the MODIS land-cover raster
+- compiles daily annual shortwave black-sky albedo layers
 - applies quality filtering
-- fills cloudy-sky gaps using a Kalman filter approach informed by climatology and neighboring pixels
+- fills cloudy-sky gaps using a climatology-informed Kalman filtering approach
 - exports annual daily albedo outputs as `output_<year>.mat`
 
-These processed annual `.mat` files are the environmental inputs used by later R scripts.
+These processed annual `.mat` files are used as environmental inputs in the later R scripts.
 
 ---
 
@@ -87,8 +141,8 @@ This script visualizes annual caribou tracks relative to Contwoyto Lake and supp
 
 Main purpose:
 
-- plot annual tracks in an interactive leaflet map
-- manually record IDs that appear to traverse the lake
+- display annual trajectories in an interactive map
+- support manual screening of possible lake-use events
 - export candidate IDs for downstream checking
 
 ---
@@ -99,16 +153,17 @@ Main purpose:
 
 This script:
 
-- finds all GPS points within the lake polygon during DOY 92 to 280
+- identifies GPS points falling within the Contwoyto Lake polygon during DOY 92 to 280
 - creates a year-by-ID candidate list
-- loads annual processed albedo data
+- loads processed annual albedo `.mat` files
 - calculates pixel-level albedo percentile rank (APR)
-- extracts APR values for points falling within the lake
+- extracts APR values associated with on-lake points
 
-Main outputs include:
+**Inputs**
 
-- `on_lake_candidates.csv`
-- `on_lake.csv`
+- restricted `nwt_lakes.RData`
+- `data/Contwoyto_pure_water.shp` and companion shapefile files
+- annual processed albedo files `output_<year>.mat`
 
 ---
 
@@ -116,7 +171,9 @@ Main outputs include:
 
 #### `03_Crossing_event.R`
 
-This script identifies confirmed crossing events and computes event-level metrics, including:
+This script identifies confirmed crossing events and computes event-level movement and environmental metrics for known crossings.
+
+Derived variables include:
 
 - Crossing duration
 - Lake width
@@ -127,9 +184,12 @@ This script identifies confirmed crossing events and computes event-level metric
 - APR of the entire lake area 
 - Reference steps before and after transit events
 
-Main output:
+**Inputs**
 
-- `crossing_event.csv`
+- restricted `nwt_lakes.RData`
+- lake shapefile
+- annual processed albedo files
+- `on_lake.csv` or equivalent checked crossing table
 
 ---
 
@@ -137,36 +197,20 @@ Main output:
 
 #### `03b_unknown_crossing_event.R`
 
-This script identifies and processes lake-intersection events that could not be confidently classified *a priori* as either confirmed crossings or confirmed circumnavigations.
+This script identifies lake-intersection events that could not be confidently classified in advance as either known crossings or known circumnavigations.
 
-The workflow includes three parts:
+The workflow includes:
 
-1. **Broad candidate generation**  
-   All Year-ID-season combinations whose seasonal trajectory intersects the lake polygon are identified as candidate unknown crossing events.
+1. broad candidate generation from seasonal lake-intersection cases  
+2. manual review support for indexing candidate events  
+3. event-level metric extraction after manual confirmation  
 
-2. **Manual review support**  
-   The script provides helper functions, including `suggest_crossing_indices()`, to visualize candidate trajectories, label seasonal GPS points by index, and suggest possible `before_index` and `after_index` values based on trajectory-lake intersection geometry.
+Manual review is required before generating the final unknown-event dataset.
 
-3. **Event-level metric extraction**  
-   After manual review, the checked candidate table is used to calculate focal-event and reference-step variables, including:
-   - crossing duration
-   - lake width
-   - straight-line distance and speed
-   - least-cost circumnavigation distance and speed
-   - APR along the potential crossing path
-   - APR at the nearest lake pixel
-   - APR of the entire lake area  
+**Main intermediate outputs**
 
-Manual review is required before the final event table can be built.
-
-Main intermediate files:
-
-- `lake_intersection_candidates.csv`
-- `unknown_crossing_candidates_checked.csv`
-
-Main output:
-
-- `unknown_crossing_event.csv`
+- candidate tables for manual review
+- manually checked unknown-event table with `before_index` and `after_index`
 
 ---
 
@@ -174,40 +218,47 @@ Main output:
 
 #### `04_Circumnavigating_event.R`
 
-This script identifies candidate circumnavigation events using spatial rules, followed by manual confirmation.
+This script identifies and processes circumnavigation events.
 
 The workflow includes:
 
 - automated candidate screening using a lake buffer and long-axis intersection
-- manual trajectory review
-- assignment of start and end indices for confirmed events
-- extraction of event-level movement and APR variables for confirmed circumnavigation events
+- manual visual confirmation
+- assignment of event start and end indices
+- extraction of event-level movement and APR metrics
 - generation of reference rows around focal events
 
-Main output:
+Manual review is required before final event extraction.
 
-- `circumnavigate_event.csv`
+**Inputs**
 
+- restricted `nwt_lakes.RData`
+- lake shapefile
+- annual processed albedo files
+- manually checked circumnavigation candidate table
+  
 ---
 
 ### Step 5. Build combined event dataset
 
 #### `05_prepare_modeling_dataset.R`
 
-This script combines crossing, unknown, and circumnavigation event tables into a unified event dataset.
+This script combines the crossing, unknown-crossing, and circumnavigation event tables into a unified event-level dataset.
 
 It also:
 
-- creates unique `event_id` values
+- creates event IDs
 - derives reference-based movement summaries
-- estimates time spent in lake area using `ctmm` occurrence distributions
-- creates focal-event and full-event output tables
+- estimates time spent in the lake area using `ctmm` occurrence distributions
+- exports combined and focal-event tables for downstream modeling
 
-Main outputs:
+**Inputs**
 
-- `all_event_combined.csv`
-- `all_focal_events_with_lake_spent.csv`
-- `chapter1_cleaned_events.rda`
+- `crossing_event.csv`
+- `unknown_crossing_event.csv`
+- `circumnavigate_event.csv`
+- restricted `nwt_lakes.RData`
+- lake shapefile
 
 ---
 
@@ -215,23 +266,18 @@ Main outputs:
 
 #### `06_prepare_model_inputs.R`
 
-This script standardizes data types, derives predictor variables, and creates analysis-ready subsets for known and unknown events.
+This script standardizes data types, creates feature-engineered variables, and prepares analysis-ready datasets for modeling.
 
 It outputs:
 
-- full focal-event feature table
-- known vs unknown subsets
+- a focal-event feature table
+- known-event subsets
+- unknown-event subsets
 - spring-only and fall-only subsets
 
-Main outputs:
+**Input**
 
-- `feature_df.csv`
-- `known_event_all.csv`
-- `unknown_event_all.csv`
-- `known_event_spring.csv`
-- `known_event_fall.csv`
-- `unknown_event_spring.csv`
-- `unknown_event_fall.csv`
+- `all_focal_events_with_lake_spent.csv`
 
 ---
 
@@ -248,11 +294,10 @@ Methods include:
 - variable screening and diagnostics
 - prediction for unknown events
 
-Main outputs:
+**Inputs**
 
-- `combined_model_input.csv`
-- `combined_rf_test_predictions.csv`
-- `combined_unknown_predictions.csv`
+- `known_event_all.csv`
+- `unknown_event_all.csv`
 
 ---
 
@@ -262,7 +307,12 @@ Main outputs:
 
 This script fits spring-specific Random Forest and binomial logistic models and predicts unknown spring events.
 
-Main outputs:
+**Inputs**
+
+- `known_event_spring.csv`
+- `unknown_event_spring.csv`
+
+**Main outputs**
 
 - `spring_model_input.csv`
 - `spring_rf_test_predictions.csv`
@@ -276,7 +326,12 @@ Main outputs:
 
 This script fits fall-specific Random Forest and binomial logistic models and predicts unknown fall events.
 
-Main outputs:
+**Inputs**
+
+- `known_event_fall.csv`
+- `unknown_event_fall.csv`
+
+**Main outputs**
 
 - `fall_model_input.csv`
 - `fall_rf_test_predictions.csv`
@@ -286,11 +341,9 @@ Main outputs:
 
 ## Figure scripts
 
-The repository includes separate scripts for generating manuscript figures and supplementary figures.
+The `Figure_Script/` directory contains scripts used to generate manuscript figures and supplementary figures.
 
 ### Main-text figure scripts
-
-Examples include:
 
 - `Figure1_maps.R`
 - `Figure2_example_paths.R`
@@ -350,8 +403,6 @@ Figure scripts can be run after the relevant upstream data objects and modeling 
 
 Used for MODIS albedo preprocessing:
 
-- MATLAB with image and file I/O support
-
 ### R
 
 Most analyses were conducted in R.
@@ -387,11 +438,21 @@ Commonly used packages include:
 - `svglite`
 - `mapview`
 
+Additional packages may be required for some figure-generation scripts.
+
 ---
 
 ## Reproducibility note
 
-Because some input data are restricted and several steps require manual inspection, this repository is best understood as a transparent analysis archive rather than a fully automated reproducible pipeline. All scripts used in the manuscript are included, but some intermediate decisions require user input and some upstream data must be obtained separately.
+This repository is intended as a transparent and complete analysis archive, but not all components are fully automated.
+
+There are three main reasons:
+
+1. the raw caribou GPS data are restricted and cannot be redistributed here  
+2. some preprocessing inputs are large and may need to be obtained separately  
+3. several event-identification steps require manual review and confirmation  
+
+For these reasons, the repository provides the full analysis logic and the main derived products used in the manuscript, while acknowledging that some steps require access to restricted data and user-guided decisions.
 
 ---
 
@@ -403,6 +464,8 @@ Because some input data are restricted and several steps require manual inspecti
 - Some figures were assembled outside R after panel export.
 - Some scripts preserve exploratory or alternative analytical approaches for transparency, even when the final manuscript used a simplified implementation.
 - This repository is best understood as a transparent analysis archive rather than a fully automated one-command pipeline.
+- Some intermediate files included in `data/` are retained as reference materials and may not perfectly match the final cleaned code structure after later reorganization.
+
 
 ---
 
@@ -411,5 +474,6 @@ Because some input data are restricted and several steps require manual inspecti
 **Qianru Liao**  
 Department of Biology  
 University of Maryland, College Park
+Email: qianru@terpmail.umd.edu
 
 For questions about the code, workflow, or manuscript, please contact the corresponding author.

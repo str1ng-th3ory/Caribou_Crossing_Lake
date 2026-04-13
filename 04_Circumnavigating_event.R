@@ -281,7 +281,9 @@ albedo_data = NULL
 percentile_rank = NULL
 
 # results_df_checked should contain manually confirmed circumnavigation events
+# save it as circumnavigation_candidates_checked.csv
 # with columns: Year, ID, season, before_index, after_index
+results_df_checked = read.csv("circumnavigation_candidates_checked.csv", stringsAsFactors = FALSE)
 
 for (i in seq_len(nrow(results_df_checked))) {
   

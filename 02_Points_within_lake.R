@@ -111,7 +111,7 @@ for (i in 1:length(initial_list$Year)) {
   
   if (is.na(current_year) || year != current_year) {
     current_year = year
-    data_filename = paste0("output_", year, ".mat") #change year here
+    data_filename = data_filename = file.path("data", paste0("output_", year, ".mat")) #change year here
     
     climatology_data = readMat(data_filename)
     arr_climatology = array(unlist(climatology_data), dim = c(426, 724, 365))

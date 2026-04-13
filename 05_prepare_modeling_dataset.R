@@ -49,6 +49,8 @@ all_event = all_event %>%
   arrange(location, Year, ID, crossing_time) %>%
   group_by(location) %>%
   mutate(event_id_num = ceiling(row_number() / 7)) %>%
+  # each focal event is expected to contribute 7 rows
+  #	reference rows may be incomplete near seasonal boundaries, in which case users should verify grouping manually
   ungroup() %>%
   mutate(
     event_id = case_when(

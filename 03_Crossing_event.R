@@ -36,7 +36,7 @@ nwt_lakes = sf::st_transform(nwt_lakes, 4326)
 #polys1 = readOGR(dsn = ".", layer = "Contwoyto_pure_water")
 
 # lake polygon
-polys1_sf = sf::st_read(  "/Users/Qianr/Documents/GitHub/dessertation_phd/Contwoyto_pure_water.shp", quiet = TRUE)
+polys1_sf = sf::st_read("data/Contwoyto_pure_water.shp", quiet = TRUE)
 polys1_sf = sf::st_transform(polys1_sf, 4326)
 polys1 = as(polys1_sf, "Spatial")
 
@@ -49,8 +49,12 @@ nwt_lakes=nwt_lakes_new%>%arrange(Time)
 # url = "link"
 # on_lake = gsheet2tbl(url)
 
-# option2: use object saved from the previous script
+# option2
 on_lake = final_data_frame   
+
+# option3: use object saved from the previous script
+on_lake = read.csv("on_lake.csv", stringsAsFactors = FALSE)
+on_lake$Time = as.POSIXct(on_lake$Time, tz = "UTC")
 # or load "on_lake.csv"
 # on_lake = read.csv("on_lake.csv")
 
@@ -239,7 +243,7 @@ for (i in 1:length(initial_list$Year)) {
   #add type for the crossing point 
   type=0
   
-  #收集结果
+  #collect results
   pair_list[[length(pair_list) + 1]] = list(
     Year=year,
     ID= id,

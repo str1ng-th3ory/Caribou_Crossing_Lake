@@ -1,3 +1,25 @@
+% 00_MODIS_Albedo_Processing.m
+%
+% Purpose:
+% Preprocess MODIS shortwave black-sky albedo over lake pixels, generate a
+% climatology, apply QA filtering, and fill cloudy-sky gaps for target years.
+%
+% Inputs:
+% - landcover/MCD12Q1.061_LC_Type1_doy2011001_aid0001.tif (for example)
+% - alb/<year>/MCD43A3.061_Albedo_BSA_shortwave_doy*.tif (for example)
+% - alb/<year>/MCD43A3.061_BRDF_Albedo_Band_Mandatory_Quality_shortwave_doy*.tif (for example)
+%
+% Outputs:
+% - output_<year>.mat
+
+
+% External methodological reference:
+% The cloudy-sky albedo gap-filling procedure implemented here is adapted from:
+% Jia, A., et al. (2023). Improved cloudy-sky snow albedo estimates using passive microwave and VIIRS data.
+% ISPRS Journal of Photogrammetry and Remote Sensing, 196, 340-355.
+% Users reusing this preprocessing approach should cite that paper.
+
+
 clc
 clear
 
@@ -30,7 +52,7 @@ water_mask(water_mask == 17) = 1;
 alb_count_all = single(zeros(rows,cols,365)); 
 alb_all = single(zeros(rows,cols,365));
 
-for iyear = 2001 : 2022
+for iyear = 2001 : 2021
    iyear
    files = dir(['alb/',num2str(iyear),'/MCD43A3.061_Albedo_BSA_shortwave_doy*.tif']); 
    
@@ -57,7 +79,7 @@ end
 alb_clim = alb_all./alb_count_all; %calculate mean
 alb_clim(alb_clim<=0 | alb_clim>=1) = nan; %% double check if the downloaded albedo has been converted to 0~1
 
-for iyear = 2017:2022 
+for iyear = 2001:2021
    iyear %%target year
    
    files = dir(['alb/',num2str(iyear),'/MCD43A3.061_Albedo_BSA_shortwave_doy*.tif']);
@@ -104,15 +126,18 @@ for iyear = 2017:2022
            pixel_clim(end_day-buffer_days+1:end) = nan;
            
            
-           %%filling, paper: 2.2.3 of Jia, Aolin, et al. "Improved cloudy-sky snow albedo estimates using passive microwave and VIIRS data." ...
-           %% ISPRS Journal of Photogrammetry and Remote Sensing 196 (2023): 340-355.
+           %% Cloud-gap filling step adapted from:
+           %% Jia, A., et al. (2023). Improved cloudy-sky snow albedo estimates using passive microwave and VIIRS data.
+           %% ISPRS Journal of Photogrammetry and Remote Sensing, 196, 340–355.
+           %% Specifically, the Kalman-filter-based filling approach follows Section 2.2.3,
+           %% adapted here for MODIS shortwave black-sky albedo over lake pixels.
            dynamic_alb = pixel_clim;
            dT_model = squeeze(dynamic_alb -[NaN;dynamic_alb(1:end-1)]); %difference between the day and the previous day (day-1)
            mark = pixel_alb;mark(~isnan(mark)) = 1;
            y_kalman = nan(365,1);%result
            P_fil = 3;%climatology error %relative ratio
-           R = 3;%遥感观测误差 精度0.05 常数
-           Q=P_fil;%初始值
+           R = 3;
+           Q=P_fil;
            x_fil=[dynamic_alb(start_day+buffer_days+1)];
            
            for ii = start_day+buffer_days+2:end_day-buffer_days %filtering from the second day
@@ -128,7 +153,7 @@ for iyear = 2017:2022
                        adjust_adj_clim(adjust_adj_clim<=0 | adjust_adj_clim>=1) = nan;
                    end
                end
-               A = [];%simulation model 误差传播
+               A = [];%simulation model 
                if ii==start_day+buffer_days+2
                    A=[1 dT_model(start_day+buffer_days+2)./(dynamic_alb(start_day+buffer_days+1))];
                else
@@ -152,7 +177,7 @@ for iyear = 2017:2022
                    P_fil=A*P_fil*A'+Q;
                else
                    x_pre=sum(A*(x_fil));
-                   P_pre=A*P_fil*A'+Q; %acumulated climatology error (weight)
+                   P_pre=A*P_fil*A'+Q; % accumulated climatology error (weight)
                    K=P_pre./(P_pre+R);%kalman gain
                    x_fil=x_pre+K*(pixel_alb(ii)-x_pre);
                    P_fil=(1-K)*P_pre;

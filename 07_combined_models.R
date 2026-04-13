@@ -26,6 +26,7 @@ library(car)
 library(glmnet)
 library(MASS)
 library(ggplot2)
+library(detectseparation)
 
 # =========================
 # 1. Load data

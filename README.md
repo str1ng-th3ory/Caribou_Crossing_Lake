@@ -1,6 +1,6 @@
 # Dynamic Lake Ice Conditions Shape Caribou Water-Crossing Behavior in the Arctic
 
-**Archive DOI:** [![DOI](https://zenodo.org/badge/19364012.svg)](https://doi.org/10.5281/zenodo.19364012)  
+**Archive DOI:** [10.5281/zenodo.19364012](https://doi.org/10.5281/zenodo.19364012)   
 **Article DOI:** [10.1111/gcb.70858](https://doi.org/10.1111/gcb.70858)  *(in production)*
 
 **License:** MIT
